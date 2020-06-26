@@ -21,7 +21,7 @@ library(corrplot)   # Visuazlize correlation plots
 sp_500 <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies") %>%
     html_node("table.wikitable") %>%
     html_table() %>%
-    select(`Ticker symbol`, Security, `GICS Sector`, `GICS Sub Industry`) %>%
+    select(`Symbol`, Security, `GICS Sector`, `GICS Sub Industry`) %>%
     as_tibble()
 # Format names
 names(sp_500) <- sp_500 %>%
@@ -29,6 +29,12 @@ names(sp_500) <- sp_500 %>%
     str_to_lower() %>%
     make.names()
 
+# remove BRK.B
+sp_500 <- sp_500 %>% 
+    filter(symbol != "BRK.B") %>%
+    filter(symbol != "BF.B")
+
+#sp_500 <- sp_500[1:10, ]
 
 # Creating Functions to Map ----------------------------------------------------
 
@@ -41,8 +47,8 @@ get_stock_prices <- function(ticker, return_format = "tibble", ...) {
     if (return_format == "tibble") {
         stock_prices <- stock_prices_xts %>%
             as_tibble() %>%
-            rownames_to_column(var = "Date") %>%
-            mutate(Date = ymd(Date))
+            mutate(Date = ymd(index(stock_prices_xts))) # index returns the date from xts object
+        
     } else {
         stock_prices <- stock_prices_xts
     }
@@ -72,21 +78,21 @@ get_log_returns <- function(x, return_format = "tibble", period = 'daily', ...) 
 
 
 # Mapping the Functions --------------------------------------------------------
-from <- "2007-01-01"
+from <- "2020-01-01"
 to   <- today()
 sp_500 <- sp_500 %>%
     mutate(
-        stock.prices = map(ticker.symbol,
+        stock.prices = map(symbol,
                            function(.x) get_stock_prices(.x,
                                                          return_format = "tibble",
                                                          from = from,
                                                          to   = to)
-        ),
-        log.returns  = map(stock.prices,
-                           function(.x) get_log_returns(.x, return_format = "tibble")),
-        mean.log.returns = map_dbl(log.returns, ~ mean(.$Log.Returns)),
-        sd.log.returns   = map_dbl(log.returns, ~ sd(.$Log.Returns)),
-        n.trade.days = map_dbl(stock.prices, nrow)
+        )#,
+        #log.returns  = map(stock.prices,
+        #                   function(.x) get_log_returns(.x, return_format = "tibble")) #,
+        #mean.log.returns = map_dbl(log.returns, ~ mean(.$Log.Returns)),
+        #sd.log.returns   = map_dbl(log.returns, ~ sd(.$Log.Returns)),
+        #n.trade.days = map_dbl(stock.prices, nrow)
     )
 
 
@@ -101,7 +107,7 @@ plot_ly(data   = sp_500,
         colors = "Blues",
         size   = ~ n.trade.days,
         text   = ~ str_c("<em>", security, "</em><br>",
-                         "Ticker: ", ticker.symbol, "<br>",
+                         "Ticker: ", symbol, "<br>",
                          "Sector: ", gics.sector, "<br>",
                          "Sub Sector: ", gics.sub.industry, "<br>",
                          "No. of Trading Days: ", n.trade.days),
@@ -140,18 +146,18 @@ sp_500_hp <- sp_500 %>%
     mutate(rank = mean.log.returns %>% desc() %>% min_rank()) %>%
     filter(rank <= limit) %>%
     arrange(rank) %>%
-    select(ticker.symbol, rank, mean.log.returns, sd.log.returns, log.returns)
+    select(symbol, rank, mean.log.returns, sd.log.returns, log.returns)
 sp_500_hp
 
 # Unnest high performing stocks
 sp_500_hp_unnest <- sp_500_hp %>%
-    select(ticker.symbol, log.returns) %>%
+    select(symbol, log.returns) %>%
     unnest()
 sp_500_hp_unnest
 
 # Spread format conducive to cor()
 sp_500_hp_spread <- sp_500_hp_unnest %>%
-    spread(key = ticker.symbol, value = Log.Returns) %>%
+    spread(key = symbol, value = Log.Returns) %>%
     na.omit()
 sp_500_hp_spread
 
