@@ -34,7 +34,7 @@ sp_500 <- sp_500 %>%
     filter(symbol != "BRK.B") %>%
     filter(symbol != "BF.B")
 
-#sp_500 <- sp_500[1:10, ]
+sp_500 <- sp_500[1:100, ]
 
 # Creating Functions to Map ----------------------------------------------------
 
@@ -144,11 +144,49 @@ sp_500 <- sp_500 %>%
         SMA10 = map(stock.prices, function(.x) get_sma(.x, n=10 )   ),
         SMA20 = map(stock.prices, function(.x) get_sma(.x, n=20 )   ),
         SMA50 = map(stock.prices, function(.x) get_sma(.x, n=50 )   ),
-        SMA100 = map(stock.prices, function(.x) get_sma(.x, n=100 )   ),
+        #SMA100 = map(stock.prices, function(.x) get_sma(.x, n=100 )   ),
         RSI = map(stock.prices, function(.x) get_RSI(.x)   ),    
         MACD = map(stock.prices, function(.x) get_MACD(.x)   ),
         ADX = map(stock.prices, function(.x) get_ADX(.x)   )
     )
+
+
+sp_500$DIp = 0
+for( i in 1:nrow(sp_500))
+    sp_500$DIp[i] <- as.vector(sp_500$ADX[[i]])[1]
+sp_500$DIn = 0
+for( i in 1:nrow(sp_500))
+    sp_500$DIn[i] <- as.vector(sp_500$ADX[[i]])[2]
+sp_500$DX = 0
+for( i in 1:nrow(sp_500))
+    sp_500$DX[i] <- as.vector(sp_500$ADX[[i]])[3]
+sp_500$ADX2 = 0
+for( i in 1:nrow(sp_500))
+    sp_500$ADX[i] <- as.vector(sp_500$ADX[[i]])[4]
+
+sp_500 <- sp_500 %>%
+    rename(ADX2 = ADX)
+
+
+sp_500$macd = 0
+for( i in 1:nrow(sp_500))
+    sp_500$macd[i] <- as.vector(sp_500$MACD[[i]])[1]
+
+sp_500$macd.signal = 0
+for( i in 1:nrow(sp_500))
+    sp_500$macd.signal[i] <- as.vector(sp_500$MACD[[i]])[2]
+
+
+sp500 <- sp_500 %>%
+    select( -c(MACD)) %>%
+    as.data.frame() %>%
+    mutate(RSI = as.numeric(RSI))
+# Visualization
+
+ggplot(sp500, aes(gics.sector, RSI)) + 
+    geom_boxplot() + 
+    coord_flip()
+    
 
 
 # Visualizing the Results with Plotly ------------------------------------------
