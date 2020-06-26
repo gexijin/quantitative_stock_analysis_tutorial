@@ -76,6 +76,58 @@ get_log_returns <- function(x, return_format = "tibble", period = 'daily', ...) 
     log_returns
 }
 
+get_sma <- function(x, n=10) {
+    # Convert tibble to xts
+    if (!is.xts(x)) {
+        x <- xts(x[,-1], order.by = x$Date)
+    }
+    # Get stock prices
+    SMA10 <- SMA(Cl(x), n = n)
+    SMA10[length(SMA10)]
+}
+
+get_RSI <- function(x, n=14) {
+    Date1 = x$Date
+    x <- x %>%  # remove Date column as it is used as stock price
+        select( -c(Date) )
+    
+    # Convert tibble to xts
+    if (!is.xts(x)) {
+        x <- xts(x[,-1], order.by = Date1)
+    }
+    # Calculate RSI
+    tem <- RSI(Cl(x), n = 14)
+    tail(tem, 1)
+}
+
+get_MACD <- function(x, ...) {
+    Date1 = x$Date
+    x <- x %>%  # remove Date column as it is used as stock price
+        select( -c(Date) )
+    
+    # Convert tibble to xts
+    if (!is.xts(x)) {
+        x <- xts(x[,-1], order.by = Date1)
+    }
+    # Calculate RSI
+    tem <- MACD(Cl(x), nFast = 12, nSlow = 26, nSig = 9)
+    tail(tem, 1)
+}
+
+get_ADX <- function(x, ...) {
+    Date1 = x$Date
+    x <- x %>%  # remove Date column as it is used as stock price
+        select( -c(Date) )
+    
+    # Convert tibble to xts
+    if (!is.xts(x)) {
+        x <- xts(x[,-1], order.by = Date1)
+    }
+    # Calculate RSI
+    tem2 <- ADX(x, n = 14)
+    tem <- tail(tem2, 1)
+   # names(tem) <- colnames(tem2)
+}
 
 # Mapping the Functions --------------------------------------------------------
 from <- "2020-01-01"
@@ -87,12 +139,15 @@ sp_500 <- sp_500 %>%
                                                          return_format = "tibble",
                                                          from = from,
                                                          to   = to)
-        )#,
-        #log.returns  = map(stock.prices,
-        #                   function(.x) get_log_returns(.x, return_format = "tibble")) #,
-        #mean.log.returns = map_dbl(log.returns, ~ mean(.$Log.Returns)),
-        #sd.log.returns   = map_dbl(log.returns, ~ sd(.$Log.Returns)),
-        #n.trade.days = map_dbl(stock.prices, nrow)
+        ),
+        SMA3 = map(stock.prices, function(.x) get_sma(.x, n=3 )   ),
+        SMA10 = map(stock.prices, function(.x) get_sma(.x, n=10 )   ),
+        SMA20 = map(stock.prices, function(.x) get_sma(.x, n=20 )   ),
+        SMA50 = map(stock.prices, function(.x) get_sma(.x, n=50 )   ),
+        SMA100 = map(stock.prices, function(.x) get_sma(.x, n=100 )   ),
+        RSI = map(stock.prices, function(.x) get_RSI(.x)   ),    
+        MACD = map(stock.prices, function(.x) get_MACD(.x)   ),
+        ADX = map(stock.prices, function(.x) get_ADX(.x)   )
     )
 
 
