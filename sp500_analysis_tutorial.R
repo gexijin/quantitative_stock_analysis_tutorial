@@ -333,10 +333,10 @@ selected %>%
 
 selected$symbol
 
-i = 17
+i = 12
 stock <- getSymbols(selected$symbol[i], from=today()-90, to=today(), auto.assign = FALSE,)
 chartSeries(stock,
-            name = paste(top$symbol[i], top$security[i]),
+            name = paste(selected$symbol[i], selected$security[i]),
             type="candlesticks",
             #subset='2007',
             theme=chartTheme('white'))
