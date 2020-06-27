@@ -252,16 +252,14 @@ ggplot(sp500, aes(macd.diff, gics.sector, fill = gics.sector)) +
     xlab("MACD - Signal") +
     xlim(c(-4,2))
 
-sector = "Consumer Discretionary"
-    sp500 %>%
-    filter(gics.sector == sector) %>%
-    ggplot(aes(macd.diff, RSI, label = symbol)) + 
-    geom_point() +
-    geom_text_repel() +
+ggplot(sp500, aes(ADX, gics.sector, fill = gics.sector)) + 
+    geom_density_ridges() +
     theme(legend.position = "none") +
-    xlab("MACD - Signal")  +
-    labs(subtitle = sector)
+    theme(axis.title.y=element_blank() ) +
+    xlab("ADX indicator") +
+    xlim(c(0,40))
 
+# plot tickers as scatter plot
 splot <- function(sector) {
     sp500 %>%
         filter(gics.sector == sector) %>%
@@ -275,6 +273,10 @@ splot <- function(sector) {
 
 
 sectors = unique(sp500$gics.sector)
+
+splot(sectors[5])
+
+# put all sectors in one plot
 gridExtra::grid.arrange(splot(sectors[1]), 
                         splot(sectors[2]), 
                         splot(sectors[3]),
@@ -287,6 +289,7 @@ gridExtra::grid.arrange(splot(sectors[1]),
                         splot(sectors[10]),
                         splot(sectors[11]),
                         ncol = 2)
+
 
 
 plot_ly(data   = sp500,
@@ -309,32 +312,38 @@ plot_ly(data   = sp500,
 )
 
 
-
-
-
 write.csv(sp500[,-c(5,11)], "sp500.csv")
 
 top <- sp500 %>%
-    filter(macd.diff > 0, RSI < 65, ADX > 20) 
+    filter(macd.diff > 0, RSI > 30, ADX > 20) 
+top$trend = "Up"
 
 bottom <- sp500 %>%
-    filter(macd.diff < 0, RSI < 35, ADX > 10) 
+    filter(macd.diff < 0, RSI < 35, ADX < 25) 
+bottom$trend = "Down"
 
-selected = 3
+selected <- rbind(top,bottom)
 
+selected %>%
+    ggplot(aes(macd.diff, RSI,  label = symbol, color = trend)) + 
+    geom_point() +
+    geom_text_repel() +
+    xlab("MACD - Signal")  +
+    labs(subtitle = "Selected stocks")
 
+selected$symbol
 
-stock <- getSymbols(top$symbol[selected], from=today()-90, to=today(), auto.assign = FALSE,)
-
+i = 17
+stock <- getSymbols(selected$symbol[i], from=today()-90, to=today(), auto.assign = FALSE,)
 chartSeries(stock,
-            name = paste(top$symbol[selected], top$security[selected]),
+            name = paste(top$symbol[i], top$security[i]),
             type="candlesticks",
             #subset='2007',
             theme=chartTheme('white'))
 addSMA(n=3,on=1,col = "blue")
 addSMA(n=10,on=1,col = "red")
 addRSI(n=14)
-addMACD(fast = 3, slow = 10, signal = 5)
+addMACD(fast = 12, slow = 26, signal = 9)
 
 
 
@@ -423,3 +432,4 @@ sp_500_hp_spread %>%
     cor() %>%
     corrplot(order   = "hclust",
              addrect = 6)
+             
