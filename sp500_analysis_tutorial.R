@@ -35,13 +35,20 @@ sp_500 <- sp_500 %>%
     filter(symbol != "BF.B") %>%
     filter(symbol != "ALLE")
 
-sp_500 <- sp_500[1:400, ]
+sp_500 <- sp_500[1:200, ]
 
 # Creating Functions to Map ----------------------------------------------------
 
 get_stock_prices <- function(ticker, return_format = "tibble", ...) {
     # Get stock prices
-    stock_prices_xts <- getSymbols(Symbols = ticker, auto.assign = FALSE, ...)
+     tryCatch({ stock_prices_xts <- getSymbols(Symbols = ticker, auto.assign = FALSE, ...) 
+    }, error = function(err) {
+        tryCatch({ stock_prices_xts <- getSymbols(Symbols = ticker, auto.assign = FALSE, ...) 
+        }, error = function(err) {
+            getSymbols(Symbols = ticker, auto.assign = FALSE, ...)
+        })
+    })
+
     # Rename
     names(stock_prices_xts) <- c("Open", "High", "Low", "Close", "Volume", "Adjusted")
     # Return in xts format if tibble is not specified
@@ -53,6 +60,7 @@ get_stock_prices <- function(ticker, return_format = "tibble", ...) {
     } else {
         stock_prices <- stock_prices_xts
     }
+    Sys.sleep(0.2)
     stock_prices
 }
 
