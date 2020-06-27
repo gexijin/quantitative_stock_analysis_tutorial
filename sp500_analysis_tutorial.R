@@ -35,7 +35,7 @@ sp_500 <- sp_500 %>%
     filter(symbol != "BF.B") %>%
     filter(symbol != "ALLE")
 
-sp_500 <- sp_500[1:200, ]
+sp_500 <- sp_500[1:400, ]
 
 # Creating Functions to Map ----------------------------------------------------
 
@@ -152,6 +152,7 @@ sp_500 <- sp_500 %>%
     )
 
 
+# Split columns as some indicators  return multiple values-----------------------------
 sp_500$DIp = 0
 for( i in 1:nrow(sp_500))
     sp_500$DIp[i] <- as.vector(sp_500$ADX[[i]])[1]
@@ -200,15 +201,17 @@ ggplot(sp500, aes(gics.sector, macd.diff)) +
 
 
 top <- sp500 %>%
-    filter(macd.diff > 0, RSI < 70, ADX > 25) 
+    filter(macd.diff > 0, RSI < 80, ADX > 25) 
 
 
-selected = top$symbol[1]
+selected = 2
 
-stock <- getSymbols(selected, from=today()-90, to=today(), auto.assign = FALSE,)
+
+
+stock <- getSymbols(top$symbol[selected], from=today()-90, to=today(), auto.assign = FALSE,)
 
 chartSeries(stock,
-            name = paste(selected, top$security[1]),
+            name = paste(top$symbol[selected], top$security[selected]),
             type="candlesticks",
             #subset='2007',
             theme=chartTheme('white'))
