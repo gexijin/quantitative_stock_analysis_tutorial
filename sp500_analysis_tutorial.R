@@ -32,9 +32,10 @@ names(sp_500) <- sp_500 %>%
 # remove BRK.B
 sp_500 <- sp_500 %>% 
     filter(symbol != "BRK.B") %>%
-    filter(symbol != "BF.B")
+    filter(symbol != "BF.B") %>%
+    filter(symbol != "ALLE")
 
-sp_500 <- sp_500[1:100, ]
+sp_500 <- sp_500[1:200, ]
 
 # Creating Functions to Map ----------------------------------------------------
 
@@ -160,12 +161,10 @@ for( i in 1:nrow(sp_500))
 sp_500$DX = 0
 for( i in 1:nrow(sp_500))
     sp_500$DX[i] <- as.vector(sp_500$ADX[[i]])[3]
-sp_500$ADX2 = 0
+
 for( i in 1:nrow(sp_500))
     sp_500$ADX[i] <- as.vector(sp_500$ADX[[i]])[4]
 
-sp_500 <- sp_500 %>%
-    rename(ADX2 = ADX)
 
 
 sp_500$macd = 0
@@ -176,17 +175,62 @@ sp_500$macd.signal = 0
 for( i in 1:nrow(sp_500))
     sp_500$macd.signal[i] <- as.vector(sp_500$MACD[[i]])[2]
 
+sp_500$macd.diff = sp_500$macd - sp_500$macd.signal
+
 
 sp500 <- sp_500 %>%
     select( -c(MACD)) %>%
     as.data.frame() %>%
-    mutate(RSI = as.numeric(RSI))
+    mutate(RSI = as.numeric(RSI)) %>%
+    mutate(macd = as.numeric(macd))
 # Visualization
 
 ggplot(sp500, aes(gics.sector, RSI)) + 
     geom_boxplot() + 
     coord_flip()
     
+ggplot(sp500, aes(gics.sector, macd)) + 
+    geom_boxplot() + 
+    coord_flip()
+
+ggplot(sp500, aes(gics.sector, macd.diff)) + 
+    geom_boxplot() + 
+    coord_flip()
+
+
+
+top <- sp500 %>%
+    filter(macd.diff > 0, RSI < 70, ADX > 25) 
+
+
+selected = top$symbol[1]
+
+stock <- getSymbols(selected, from=today()-90, to=today(), auto.assign = FALSE,)
+
+chartSeries(stock,
+            name = paste(selected, top$security[1]),
+            type="candlesticks",
+            #subset='2007',
+            theme=chartTheme('white'))
+addSMA(n=3,on=1,col = "blue")
+addSMA(n=10,on=1,col = "red")
+addRSI(n=14)
+addMACD(fast = 3, slow = 10, signal = 5)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Visualizing the Results with Plotly ------------------------------------------
