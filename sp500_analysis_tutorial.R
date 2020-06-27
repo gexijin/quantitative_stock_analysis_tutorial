@@ -1,6 +1,7 @@
 # R Code for S&P500 Stock Analysis
 # Author: Matt Dancho
-# Date: 2016-10-23
+# revised Xijin Ge
+# Date: 2020-6-26
 
 
 # Prerequisites ----------------------------------------------------------------
@@ -13,7 +14,8 @@ library(forcats)    # working with factors
 library(lubridate)  # working with dates in tibbles / data frames
 library(plotly)     # Interactive plots
 library(corrplot)   # Visuazlize correlation plots
-
+library(ggridges)   # Ridge plots
+library(ggrepel)    # label data points
 
 # Web Scraping: Get the List of S&P500 Stocks ----------------------------------
 
@@ -33,13 +35,31 @@ names(sp_500) <- sp_500 %>%
 sp_500 <- sp_500 %>% 
     filter(symbol != "BRK.B") %>%
     filter(symbol != "BF.B") %>%
-    filter(symbol != "ALLE")
+    filter(symbol != "HWM")
 
-sp_500 <- sp_500[1:200, ]
+#sp_500 <- sp_500[1:300, ]
 
 # Creating Functions to Map ----------------------------------------------------
-
 get_stock_prices <- function(ticker, return_format = "tibble", ...) {
+    # Get stock prices
+    stock_prices_xts <- getSymbols(Symbols = ticker, auto.assign = FALSE, ...) 
+
+        # Rename
+        names(stock_prices_xts) <- c("Open", "High", "Low", "Close", "Volume", "Adjusted")
+        # Return in xts format if tibble is not specified
+        if (return_format == "tibble") {
+            stock_prices <- stock_prices_xts %>%
+                as_tibble() %>%
+                mutate(Date = ymd(index(stock_prices_xts))) # index returns the date from xts object
+            
+        } else {
+            stock_prices <- stock_prices_xts
+        }
+        Sys.sleep(0.3)
+        stock_prices 
+}
+
+get_stock_prices_back <- function(ticker, return_format = "tibble", ...) {
     # Get stock prices
      tryCatch({ stock_prices_xts <- getSymbols(Symbols = ticker, auto.assign = FALSE, ...) 
     }, error = function(err) {
@@ -48,7 +68,10 @@ get_stock_prices <- function(ticker, return_format = "tibble", ...) {
             getSymbols(Symbols = ticker, auto.assign = FALSE, ...)
         })
     })
-
+    
+    if(is.null(stock_prices_xts)) { 
+        return(NULL) 
+        } else { 
     # Rename
     names(stock_prices_xts) <- c("Open", "High", "Low", "Close", "Volume", "Adjusted")
     # Return in xts format if tibble is not specified
@@ -60,8 +83,9 @@ get_stock_prices <- function(ticker, return_format = "tibble", ...) {
     } else {
         stock_prices <- stock_prices_xts
     }
-    Sys.sleep(0.2)
-    stock_prices
+    Sys.sleep(0.3)
+    return( stock_prices )
+        }
 }
 
 get_log_returns <- function(x, return_format = "tibble", period = 'daily', ...) {
@@ -141,7 +165,11 @@ get_ADX <- function(x, ...) {
 # Mapping the Functions --------------------------------------------------------
 from <- "2020-01-01"
 to   <- today()
-sp_500 <- sp_500 %>%
+#sp100 <- sp_500[1:100, ] %>%
+#sp200 <- sp_500[101:200, ] %>%
+#sp300 <- sp_500[201:300, ] %>%
+#sp400 <- sp_500[301:400, ] %>%
+sp500 <- sp_500[401:500, ] %>%
     mutate(
         stock.prices = map(symbol,
                            function(.x) get_stock_prices(.x,
@@ -158,6 +186,9 @@ sp_500 <- sp_500 %>%
         MACD = map(stock.prices, function(.x) get_MACD(.x)   ),
         ADX = map(stock.prices, function(.x) get_ADX(.x)   )
     )
+
+sp_500 = rbind(sp100, sp200, sp300, sp400)
+
 
 
 # Split columns as some indicators  return multiple values-----------------------------
@@ -191,8 +222,10 @@ sp500 <- sp_500 %>%
     select( -c(MACD)) %>%
     as.data.frame() %>%
     mutate(RSI = as.numeric(RSI)) %>%
-    mutate(macd = as.numeric(macd))
-# Visualization
+    mutate(macd = as.numeric(macd)) %>%
+    mutate(macd.diff = as.numeric(macd.diff)) %>%
+    mutate(ADX = as.numeric(ADX))
+# Visualization -----------------------------------------------------
 
 ggplot(sp500, aes(gics.sector, RSI)) + 
     geom_boxplot() + 
@@ -206,13 +239,88 @@ ggplot(sp500, aes(gics.sector, macd.diff)) +
     geom_boxplot() + 
     coord_flip()
 
+# ridge plots
+ggplot(sp500, aes(RSI, gics.sector, fill = gics.sector)) + 
+    geom_density_ridges() +
+    theme(legend.position = "none") +
+    theme(axis.title.y=element_blank() )
 
+ggplot(sp500, aes(macd.diff, gics.sector, fill = gics.sector)) + 
+    geom_density_ridges() +
+    theme(legend.position = "none") +
+    theme(axis.title.y=element_blank() ) +
+    xlab("MACD - Signal") +
+    xlim(c(-4,2))
+
+sector = "Consumer Discretionary"
+    sp500 %>%
+    filter(gics.sector == sector) %>%
+    ggplot(aes(macd.diff, RSI, label = symbol)) + 
+    geom_point() +
+    geom_text_repel() +
+    theme(legend.position = "none") +
+    xlab("MACD - Signal")  +
+    labs(subtitle = sector)
+
+splot <- function(sector) {
+    sp500 %>%
+        filter(gics.sector == sector) %>%
+        ggplot(aes(macd.diff, RSI, label = symbol)) + 
+        geom_point() +
+        geom_text_repel() +
+        theme(legend.position = "none") +
+        xlab("MACD - Signal")  +
+        labs(subtitle = sector)
+}
+
+
+sectors = unique(sp500$gics.sector)
+gridExtra::grid.arrange(splot(sectors[1]), 
+                        splot(sectors[2]), 
+                        splot(sectors[3]),
+                        splot(sectors[4]),
+                        splot(sectors[5]),
+                        splot(sectors[6]),
+                        splot(sectors[7]),
+                        splot(sectors[8]),
+                        splot(sectors[9]),
+                        splot(sectors[10]),
+                        splot(sectors[11]),
+                        ncol = 2)
+
+
+plot_ly(data   = sp500,
+        type   = "scatter",
+        mode   = "markers",
+        x      = ~ RSI,
+        y      = ~ macd.signal,
+        color  = ~ gics.sector,
+        colors = "Blues",
+        size   = ~ ADX,
+        text   = ~ str_c("<em>", security, "</em><br>",
+                         "Ticker: ", symbol, "<br>",
+                         "Sector: ", gics.sector, "<br>",
+                         "Sub Sector: ", gics.sub.industry),
+        marker = list(opacity = 0.8,
+                      symbol = 'circle',
+                      sizemode = 'diameter',
+                      sizeref = 4.0,
+                      line = list(width = 2, color = '#FFFFFF'))
+)
+
+
+
+
+
+write.csv(sp500[,-c(5,11)], "sp500.csv")
 
 top <- sp500 %>%
-    filter(macd.diff > 0, RSI < 80, ADX > 25) 
+    filter(macd.diff > 0, RSI < 65, ADX > 20) 
 
+bottom <- sp500 %>%
+    filter(macd.diff < 0, RSI < 35, ADX > 10) 
 
-selected = 2
+selected = 3
 
 
 
