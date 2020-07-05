@@ -1,0 +1,1 @@
+load("sp500_data.Rdata")

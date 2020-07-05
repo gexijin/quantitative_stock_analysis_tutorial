@@ -41,7 +41,6 @@ sp_500 <- sp_500 %>%
 
 # Creating Functions to Map ----------------------------------------------------
 get_stock_prices <- function(ticker, return_format = "tibble", ...) {
-    stock_prices <- NULL
     # Get stock prices
     stock_prices_xts <- getSymbols(Symbols = ticker, auto.assign = FALSE, ...) 
 
@@ -56,7 +55,7 @@ get_stock_prices <- function(ticker, return_format = "tibble", ...) {
         } else {
             stock_prices <- stock_prices_xts
         }
-        Sys.sleep(2)
+        Sys.sleep(0.3)
         stock_prices 
 }
 
@@ -148,28 +147,6 @@ get_MACD <- function(x, ...) {
     tail(tem, 1)
 }
 
-# days since reversal
-get_MACD_days <- function(x, ...) {
-    Date1 = x$Date
-    x <- x %>%  # remove Date column as it is used as stock price
-        select( -c(Date) )
-    
-    # Convert tibble to xts
-    if (!is.xts(x)) {
-        x <- xts(x[,-1], order.by = Date1)
-    }
-    # Calculate RSI
-    tem <- MACD(Cl(x), nFast = 12, nSlow = 26, nSig = 9)
-    
-    diff = tem$macd - tem$signal
-    signs <- rev( as.numeric( sign(diff) ) ) # take the sign and then reverse the sequence
-    signs <- !duplicated( signs) 
-    signs[1] <- FALSE # assign the first to FALSE
-    #match(TRUE, signs) -1  # days since reversal of trend
-    
-    tail(match(TRUE, signs) -1  )
-}
-
 get_ADX <- function(x, ...) {
     Date1 = x$Date
     x <- x %>%  # remove Date column as it is used as stock price
@@ -185,39 +162,21 @@ get_ADX <- function(x, ...) {
    # names(tem) <- colnames(tem2)
 }
 
-get_daily_returns <- function(x, ...) {
-    # not correct. needs work
-    
-    #Date1 = x$Date
-    #x <- x %>%  # remove Date column as it is used as stock price
-    #    select( -c(Date) )
-    
-    # Convert tibble to xts
-    if (!is.xts(x)) {
-        x <- xts(x[,-1], order.by = Date)
-    }
-    tail( dailyReturn(x), 30)
-}
 # Mapping the Functions --------------------------------------------------------
 from <- "2020-01-01"
 to   <- today()
-sp100 <- sp_500 %>%
+#sp100 <- sp_500[1:100, ] %>%
 #sp200 <- sp_500[101:200, ] %>%
 #sp300 <- sp_500[201:300, ] %>%
 #sp400 <- sp_500[301:400, ] %>%
-#sp500 <- sp_500[401:500, ] %>%
+sp500 <- sp_500[401:500, ] %>%
     mutate(
         stock.prices = map(symbol,
                            function(.x) get_stock_prices(.x,
                                                          return_format = "tibble",
                                                          from = from,
                                                          to   = to)
-        )
-    )
-
-
-sp100 <- sp100 %>%
-    mutate(
+        ),
         SMA3 = map(stock.prices, function(.x) get_sma(.x, n=3 )   ),
         SMA10 = map(stock.prices, function(.x) get_sma(.x, n=10 )   ),
         SMA20 = map(stock.prices, function(.x) get_sma(.x, n=20 )   ),
@@ -225,39 +184,8 @@ sp100 <- sp100 %>%
         #SMA100 = map(stock.prices, function(.x) get_sma(.x, n=100 )   ),
         RSI = map(stock.prices, function(.x) get_RSI(.x)   ),    
         MACD = map(stock.prices, function(.x) get_MACD(.x)   ),
-        days = map(stock.prices, function(.x) get_MACD_days(.x) ), # days in current trend
         ADX = map(stock.prices, function(.x) get_ADX(.x)   )
     )
-
-sp100 <- sp100 %>%
-    mutate(
-        dailyReturn = map(stock.prices, function(.x) get_daily_returns(.x, n=3 )   ),
-
-    )
-
-returns <- as.data.frame( sp100$dailyReturn )
-colnames(returns) = sp100$symbol
-x <- t( as.matrix(returns) )
-library(gplots)
-
-cutoff = median(unlist(x)) + 3*sd (unlist(x)) 
-x[x>cutoff] <- cutoff
-cutoff = median(unlist(x)) - 3*sd (unlist(x)) 
-x[x< cutoff] <- cutoff
-
-heatmap.2(x,  Rowv =T,Colv=F, dendrogram ="row",
-          col=greenred(75), density.info="none", trace="none", scale="none", keysize=.3
-          ,key=F, labRow = T
-          #,margins = c(8, 24)
-          #,srtCol=45
-)
-
-
-summary(returns
-        )
-
-
-sp_500 = sp100
 
 sp_500 = rbind(sp100, sp200, sp300, sp400)
 
@@ -296,9 +224,7 @@ sp500 <- sp_500 %>%
     mutate(RSI = as.numeric(RSI)) %>%
     mutate(macd = as.numeric(macd)) %>%
     mutate(macd.diff = as.numeric(macd.diff)) %>%
-    mutate(ADX = as.numeric(ADX)) %>%
-    mutate(days = as.numeric(days))
-
+    mutate(ADX = as.numeric(ADX))
 # Visualization -----------------------------------------------------
 
 ggplot(sp500, aes(gics.sector, RSI)) + 
@@ -348,17 +274,7 @@ splot <- function(sector) {
 
 sectors = unique(sp500$gics.sector)
 
-splot(sectors[1]) 
-splot(sectors[2]) 
-splot(sectors[3])
-splot(sectors[4])
 splot(sectors[5])
-splot(sectors[6])
-splot(sectors[7])
-splot(sectors[8])
-splot(sectors[9])
-splot(sectors[10])
-splot(sectors[11])
 
 # put all sectors in one plot
 gridExtra::grid.arrange(splot(sectors[1]), 
@@ -373,6 +289,8 @@ gridExtra::grid.arrange(splot(sectors[1]),
                         splot(sectors[10]),
                         splot(sectors[11]),
                         ncol = 2)
+
+
 
 plot_ly(data   = sp500,
         type   = "scatter",
@@ -396,11 +314,8 @@ plot_ly(data   = sp500,
 
 write.csv(sp500[,-c(5,11)], "sp500.csv")
 
-
-
-# Select stocks ----------------------------------------
 top <- sp500 %>%
-    filter(macd.diff > 0, RSI > 10, ADX > 15) 
+    filter(macd.diff > 0, RSI > 30, ADX > 20) 
 top$trend = "Up"
 
 bottom <- sp500 %>%
@@ -418,7 +333,7 @@ selected %>%
 
 selected$symbol
 
-i = 1
+i = 12
 stock <- getSymbols(selected$symbol[i], from=today()-90, to=today(), auto.assign = FALSE,)
 chartSeries(stock,
             name = paste(selected$symbol[i], selected$security[i]),
@@ -431,15 +346,20 @@ addRSI(n=14)
 addMACD(fast = 12, slow = 26, signal = 9)
 
 
+
+
+
 saveRDS(sp_500, file = "sp_400_data.rds")
 
-sp_500 <- readRDS("sp_400_data.rds" )
 
-# calculate days in current trend
-sp_500 <- sp_500 %>% 
-    mutate( days = map(stock.prices, function(.x) get_MACD_days(.x) ) ) # days in current trend )
 
-hist(as.numeric( sp_500$days) )
+
+
+
+
+
+
+
 
 # Visualizing the Results with Plotly ------------------------------------------
 
